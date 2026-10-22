@@ -1,5 +1,6 @@
 #include "depthai_ros_driver_v3/dai_nodes/sensors/camera.hpp"
 
+#include "depthai/common/CameraSensorType.hpp"
 #include "depthai/device/Device.hpp"
 #include "depthai/pipeline/InputQueue.hpp"
 #include "depthai/pipeline/Pipeline.hpp"
@@ -21,7 +22,14 @@ Camera::Camera(const std::string& daiNodeName,
     : BaseNode(daiNodeName, node, pipeline, deviceName, rsCompat) {
     RCLCPP_DEBUG(getLogger(), "Creating node %s", daiNodeName.c_str());
     setNames();
-    camNode = pipeline->create<dai::node::Camera>()->build(socket);
+    camNode = pipeline->create<dai::node::Camera>();
+    // OV9782 and OV9282 are not always distinguishable by sensor probing.
+    // Explicitly select COLOR for cameras opted in via ROS parameters.
+    const bool forceColor = node->declare_parameter<bool>(daiNodeName + ".i_force_color", false);
+    if(forceColor) {
+        camNode->setSensorType(dai::CameraSensorType::COLOR);
+    }
+    camNode->build(socket);
     ph = std::make_unique<param_handlers::SensorParamHandler>(node, daiNodeName, deviceName, rsCompat, socket);
     ph->declareParams(camNode, publish);
     setInOut(pipeline);
